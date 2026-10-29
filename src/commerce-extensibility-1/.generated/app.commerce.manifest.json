@@ -1,0 +1,107 @@
+{
+  "adminUi": {
+    "menu": {
+      "aclProtected": true,
+      "description": "Edit cart quantity enforcement settings.",
+      "id": "cart_item_validation_settings",
+      "label": "Cart Item Validation",
+      "pageTitle": "Cart Item Validation Settings",
+      "parentMenu": "stores"
+    }
+  },
+  "businessConfig": {
+    "schema": [
+      {
+        "default": true,
+        "label": "Enabled",
+        "name": "enabled",
+        "type": "boolean"
+      },
+      {
+        "default": "10",
+        "description": "Positive whole number of units allowed for each cart line.",
+        "label": "Max Quantity",
+        "name": "maxQuantity",
+        "type": "text"
+      },
+      {
+        "default": true,
+        "label": "Enable Compensating Correction",
+        "name": "enableCompensatingCorrection",
+        "type": "boolean"
+      }
+    ]
+  },
+  "metadata": {
+    "description": "Validate cart item quantities using merchant-managed settings across ACCS projects.",
+    "displayName": "Cart Item Validation",
+    "id": "cart-item-validation",
+    "upgradeMode": "manual",
+    "version": "1.5.0"
+  },
+  "webhooks": [
+    {
+      "category": "validation",
+      "description": "Reject an item exceeding the configured limit before add.",
+      "env": [
+        "saas"
+      ],
+      "label": "Validate added cart item",
+      "requireAdobeAuth": true,
+      "runtimeAction": "cart-validation/validate-cart-item",
+      "webhook": {
+        "batch_name": "cart_item_validation",
+        "fallback_error_message": "Unable to update the cart right now. Please try again.",
+        "hook_name": "validate_add_item",
+        "method": "POST",
+        "required": true,
+        "soft_timeout": 1000,
+        "timeout": 5000,
+        "webhook_method": "observer.sales_quote_add_item",
+        "webhook_type": "before"
+      }
+    },
+    {
+      "category": "validation",
+      "description": "Validate quantities on item save and compensate when necessary.",
+      "env": [
+        "saas"
+      ],
+      "label": "Validate saved cart item",
+      "requireAdobeAuth": true,
+      "runtimeAction": "cart-validation/validate-cart-item",
+      "webhook": {
+        "batch_name": "cart_item_validation",
+        "fallback_error_message": "Unable to update the cart right now. Please try again.",
+        "hook_name": "validate_saved_item",
+        "method": "POST",
+        "required": true,
+        "soft_timeout": 1000,
+        "timeout": 5000,
+        "webhook_method": "observer.sales_quote_item_save_after",
+        "webhook_type": "before"
+      }
+    },
+    {
+      "category": "validation",
+      "description": "Validate each cart line after a guest quote merges.",
+      "env": [
+        "saas"
+      ],
+      "label": "Revalidate merged quote",
+      "requireAdobeAuth": true,
+      "runtimeAction": "cart-validation/revalidate-quote-merge",
+      "webhook": {
+        "batch_name": "cart_item_validation",
+        "fallback_error_message": "Unable to update the cart right now. Please try again.",
+        "hook_name": "validate_merged_quote",
+        "method": "POST",
+        "required": true,
+        "soft_timeout": 1000,
+        "timeout": 5000,
+        "webhook_method": "observer.sales_quote_merge_after",
+        "webhook_type": "before"
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+web: web-src
+hooks:
+  pre-app-build: EXTENSION=backend-ui/2 npx aio-commerce-lib-app hooks pre-app-build
+  pre-app-dev: EXTENSION=backend-ui/2 npx aio-commerce-lib-app hooks pre-app-dev
+  pre-app-run: EXTENSION=backend-ui/2 npx aio-commerce-lib-app hooks pre-app-run
+operations:
+  view:
+    - type: web
+      impl: index.html
+runtimeManifest:
+  packages:
+    cart-validation-settings:
+      actions:
+        get-cart-validation-settings:
+          function: actions/get-cart-validation-settings/index.js
+          web: yes
+          runtime: nodejs:24
+          inputs: &ims_inputs
+            LOG_LEVEL: $LOG_LEVEL
+            AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+            AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+            AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+            AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+            AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+            AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+          annotations:
+            require-adobe-auth: true
+            final: true
+            include-ims-credentials: true
+        save-cart-validation-settings:
+          function: actions/save-cart-validation-settings/index.js
+          web: yes
+          runtime: nodejs:24
+          inputs: *ims_inputs
+          annotations:
+            require-adobe-auth: true
+            final: true
+            include-ims-credentials: true

@@ -1,0 +1,25 @@
+validate-cart-item:
+  function: ./validate-cart-item/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  inputs: &commerce_inputs
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+  annotations:
+    final: true
+    require-adobe-auth: true
+    include-ims-credentials: true
+revalidate-quote-merge:
+  function: ./revalidate-quote-merge/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  inputs: *commerce_inputs
+  annotations:
+    final: true
+    require-adobe-auth: true
+    include-ims-credentials: true

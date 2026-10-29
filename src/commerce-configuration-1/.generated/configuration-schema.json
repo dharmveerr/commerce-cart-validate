@@ -1,0 +1,21 @@
+[
+  {
+    "default": true,
+    "label": "Enabled",
+    "name": "enabled",
+    "type": "boolean"
+  },
+  {
+    "default": "10",
+    "description": "Positive whole number of units allowed for each cart line.",
+    "label": "Max Quantity",
+    "name": "maxQuantity",
+    "type": "text"
+  },
+  {
+    "default": true,
+    "label": "Enable Compensating Correction",
+    "name": "enableCompensatingCorrection",
+    "type": "boolean"
+  }
+]

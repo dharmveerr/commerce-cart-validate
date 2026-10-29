@@ -1,0 +1,56 @@
+{
+  "name": "cart-item-validation",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@adobe/aio-commerce-lib-admin-ui": "^1.1.0",
+    "@adobe/aio-commerce-lib-app": "^2.0.0",
+    "@adobe/aio-commerce-lib-auth": "1.1.3",
+    "@adobe/aio-commerce-lib-config": "^1.8.0",
+    "@adobe/aio-commerce-lib-webhooks": "1.2.2",
+    "@adobe/aio-commerce-sdk": "^2.0.0",
+    "@ljharb/tsconfig": "^0.2.3",
+    "@react-spectrum/s2": "^1.5.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "ts-loader": "^9.6.2",
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-react": "^7.29.7",
+    "@tsconfig/bases": "^1.0.28",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3"
+  },
+  "scripts": {
+    "typecheck:actions": "tsc --noEmit -p tsconfig.json",
+    "typecheck:web-src": "tsc --noEmit -p src/commerce-backend-ui-2/web-src/tsconfig.json",
+    "typecheck": "npm run typecheck:actions && npm run typecheck:web-src",
+    "test": "node --test \"test/commerce-*/**/*.test.js\"",
+    "test:sandbox": "node --test test/integration/prevention-guarantee.sandbox.test.js",
+    "postinstall": "npx aio-commerce-lib-app hooks postinstall"
+  },
+  "imports": {
+    "#app.commerce.config": "./src/commerce-extensibility-1/.generated/app.commerce.config.js",
+    "#web/*": "./src/commerce-backend-ui-2/web-src/src/*"
+  },
+  "@parcel/bundler-default": {
+    "manualSharedBundles": [
+      {
+        "assets": [
+          "**/@react-spectrum/s2/**",
+          "src/commerce-backend-ui-2/web-src/*.{js,jsx,ts,tsx}"
+        ],
+        "name": "s2-styles",
+        "types": [
+          "css"
+        ]
+      }
+    ]
+  },
+  "@parcel/resolver-default": {
+    "packageExports": true
+  }
+}
