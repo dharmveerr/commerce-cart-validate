@@ -1,7 +1,7 @@
 import { ok, successOperation, exceptionOperation } from '@adobe/aio-commerce-lib-webhooks/responses';
 import { readSettings } from '../../lib/settings.js';
 import { clampItem } from '../../lib/commerce-api-client.js';
-import { isOverLimit, parseQuantity } from '../../lib/is-over-limit.js';
+import { isOverLimit, parseQuantity, MAX_QUANTITY_MESSAGE } from '../../lib/is-over-limit.js';
 import { parseMergePayload } from './validator.js';
 
 export function createHandler({ settings = readSettings, clamp = clampItem, logger = console } = {}) {
@@ -14,16 +14,16 @@ export function createHandler({ settings = readSettings, clamp = clampItem, logg
         return ok(successOperation());
       }
       if (!Array.isArray(quote?.items)) {
-        logger.warn({ ...context, decision: 'invalid_payload' });
-        return ok(exceptionOperation('Merged cart items are required.'));
+        logger.error({ ...context, phase: 'payload', decision: 'invalid_payload' });
+        return ok(successOperation());
       }
       let first;
       for (const item of quote.items) {
         const detail = { ...context, item_id: item?.item_id, sku: item?.sku, qty: item?.qty, product_type: item?.product_type, maxQuantity: config.maxQuantity };
         if (parseQuantity(item?.qty) === 0) continue;
         if (parseQuantity(item?.qty) === null) {
-          logger.warn({ ...detail, decision: 'invalid_quantity' });
-          return ok(exceptionOperation('Cart item quantity must be a non-negative number.'));
+          logger.error({ ...detail, phase: 'payload', decision: 'invalid_quantity' });
+          continue;
         }
         if (!isOverLimit(item.qty, config.maxQuantity)) continue;
         first ??= item;
@@ -37,7 +37,7 @@ export function createHandler({ settings = readSettings, clamp = clampItem, logg
         }
         logger.warn({ ...detail, decision: 'block' });
       }
-      if (first) return ok(exceptionOperation(`Maximum quantity for ${String(first.sku ?? 'this item')} is ${config.maxQuantity}.`));
+      if (first) return ok(exceptionOperation(MAX_QUANTITY_MESSAGE));
       logger.info({ ...context, decision: 'allow', maxQuantity: config.maxQuantity });
       return ok(successOperation());
     } catch (error) {

@@ -1,24 +1,49 @@
-# Cart Item Validation — repository technical blueprint (v7 organisation alignment)
+# Cart Item Validation: Blueprint Summary (CDA Blueprint v7)
 
-This repository document aligns the **existing** Blueprint v7 implementation to the requested directory tree; it does not amend the separately approved Blueprint record or change its storage decision (`none`). There is no new root `src/lib`, `#lib` alias, data store or change to webhook contracts. Native App Management Business Config and the custom Admin UI settings page are both retained pending comparative merchant testing. All observer names/payload examples below are candidate contracts, not established ACCS behavior.
+A short summary of what the CDA blueprint decided. For the full requirements and the gap list, see [requirements-and-solution-design.md](requirements-and-solution-design.md).
 
-## Capability and responsibility map
+## 1. What the app does
 
-| Domain | Owned configuration | Code | Runtime responsibility |
-| --- | --- | --- | --- |
-| Commerce app | `app.commerce.config.ts` | SDK `.generated/` (never edit) | Metadata, Business Config schema, Admin menu and three SaaS webhook registrations. |
-| Commerce extensibility | `src/commerce-extensibility-1/ext.config.yaml` includes `actions/webhook/actions.config.yaml` | `actions/webhook/*/{index,validator}.js`, `actions/lib/*.js` | Validate add/update/merge, read merchant settings, optionally clamp saved items through associated merchant Commerce client. |
-| Native configuration | SDK-owned `src/commerce-configuration-1/ext.config.yaml` | SDK `.generated/` | Native merchant Business Config: `enabled`, `maxQuantity`, `enableCompensatingCorrection`. |
-| Admin UI | `src/commerce-backend-ui-2/ext.config.yaml` | settings actions, `actions/lib/permissions.js`, `web-src/src/pages/main-page.tsx` | Authenticated global settings page with server-side menu permission check. |
-| Tests and evidence | `test/`, `docs/` | unit and sandbox suites | Local behavior assertions versus live contract evidence. |
+- Limits the quantity of each cart line to a configurable maximum (default `10`).
+- Uses three ACCS webhooks: add item, save item, merge cart.
+- Can set an over-limit line back to the maximum ("compensating correction").
+- Offers two settings screens that share the same values.
 
-## Runtime contract preserved
+## 2. In scope
 
-- Registered `runtimeAction` names remain `cart-validation/validate-cart-item` and `cart-validation/revalidate-quote-merge`. Nested YAML `function` paths alone change. Generated App Management action URLs remain under same extension points.
-- `observer.sales_quote_add_item` (candidate `data.quoteItem`) uses item handler and blocks if over limit; `observer.sales_quote_item_save_after` (candidate `data.item`) additionally attempts correction if enabled. `observer.sales_quote_merge_after` (candidate `data.quote.items[]`) checks every row and may correct offending rows.
-- Each cart line (including parent/child rows) has same single global `maxQuantity`. Zero removal bypasses validation. Invalid quantity is rejected; config unavailable causes cart hooks to fail open with structured logging. Settings actions validate and fail closed.
-- Both settings surfaces use native Business Config, not App Builder State or custom DB. Associated-merchant Commerce client resolves backend per installation, avoiding fixed ACCS tenant.
+- Storefront add-to-cart and quantity updates.
+- Guest-to-customer cart merge at login.
+- Admin **Create New Order** (it uses the same cart events).
+- All product types. Each cart line is checked, including child lines.
 
-## Risks and acceptance gates
+## 3. Out of scope
 
-Three candidate observers' availability, payload fields and whether after-named hooks prevent persistence are not verified on ACCS. Correction can re-enter hooks; check read-before-write guard and latency live. Unit tests alone do not prove storefront/merge/Admin Create New Order enforcement. App is not Marketplace-ready until `docs/verified-contracts.md` records successful disposable-cart tests on two ACCS projects and resolves Stage App Management 500. Organisation change passes when Runtime names, responses, settings and permissions remain unchanged, YAML resolves, frontend builds and full unit suite passes.
+- Total quantity across all SKUs. This is pending the client's answer to Q-2.
+- Different limits per store or website. There is one global limit.
+- Bulk/CSV imports and other ways of changing a cart outside these three events.
+- Fixing carts that were already over the limit before installation.
+
+## 4. Key decisions
+
+| # | Decision |
+| --- | --- |
+| D-1 | Built with the Adobe Commerce SDK, using three extension points |
+| D-2 | Settings stored in App Management business configuration, with no custom database |
+| D-3 | Both settings screens are kept for now |
+| D-4 | Webhooks are `required: true`, so an action outage blocks the cart |
+| D-5 | Unreadable settings or a malformed payload: allow the cart and log an error. Only business-rule violations block. |
+| D-6 | The Commerce client of the associated merchant is used, with no hard-coded URL |
+
+## 5. Risks
+
+- Payload field names are not yet confirmed live. The code reads the documented key `quote_item` plus alternatives.
+- `_after` events may not undo a save (gap G-7).
+- A correction update may trigger the save webhook again. Check this in the live logs.
+
+## 6. Release gates
+
+- [x] Gaps G-1 and G-2 fixed, with tests
+- [ ] Client confirms Q-1 (message wording) and Q-2 (cart total)
+- [ ] App installed and three webhooks active in the sandbox
+- [ ] All tests in [deployment-and-live-testing.md](deployment-and-live-testing.md) passed and recorded in [verified-contracts.md](verified-contracts.md)
+- [ ] Second ACCS project tested (before any Marketplace listing)

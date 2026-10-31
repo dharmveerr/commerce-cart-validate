@@ -1,29 +1,82 @@
-# Cart Item Validation — LLD (directory and contracts)
+# Cart Item Validation: Low-Level Design (LLD)
 
-## Source-to-action map
+This document describes the per-line version on branch `feat/appbuilder-cartitemvalidation`. For known gaps (G-x), see [requirements-and-solution-design.md](requirements-and-solution-design.md#6-gaps).
 
-| Runtime package/action | Function in `actions/webhook/actions.config.yaml` | Parser / dependencies | Existing behavior |
+## 1. Runtime actions
+
+| Action | File | Called by | Returns |
 | --- | --- | --- | --- |
-| `cart-validation/validate-cart-item` | `validate-cart-item/index.js` | `./validator.js`, `../../lib/{settings,is-over-limit,commerce-api-client}.js` | Parse `quoteItem` or `item`; success / exception / optional saved-item correction. |
-| `cart-validation/revalidate-quote-merge` | `revalidate-quote-merge/index.js` | `./validator.js`, same `../../lib/` | Parse `data.quote`, iterate rows, optionally correct; return first offender's exception. |
-| `cart-validation-settings/get-cart-validation-settings` | `actions/get-cart-validation-settings/index.js` in backend UI config | `../lib/permissions.js`, `../../../commerce-extensibility-1/actions/lib/settings.js` | GET 200 settings; 403 ACL; 405 method; 500 configuration; 502 auth unavailable. |
-| `cart-validation-settings/save-cart-validation-settings` | `actions/save-cart-validation-settings/index.js` in backend UI config | `../lib/permissions.js`, `../../../commerce-extensibility-1/actions/lib/{settings,is-over-limit}.js` | POST validated JSON; 200/400/403/405/500/502; global config write. |
+| `cart-validation/validate-cart-item` | `src/commerce-extensibility-1/actions/webhook/validate-cart-item/index.js` | Add-item and save-item webhooks | `success` or `exception` |
+| `cart-validation/revalidate-quote-merge` | `src/commerce-extensibility-1/actions/webhook/revalidate-quote-merge/index.js` | Merge webhook | `success` or `exception` |
+| `cart-validation-settings/get-cart-validation-settings` | `src/commerce-backend-ui-2/actions/get-cart-validation-settings/index.js` | Admin page (GET) | Current settings |
+| `cart-validation-settings/save-cart-validation-settings` | `src/commerce-backend-ui-2/actions/save-cart-validation-settings/index.js` | Admin page (POST) | Saved settings |
 
-**Build-verified include resolution:** `function` entries in `actions/webhook/actions.config.yaml` resolve relative to that included file, so `validate-cart-item/index.js` points at `src/commerce-extensibility-1/actions/webhook/validate-cart-item/index.js`. An `actions/webhook/` prefix there duplicates the path and fails build with ENOENT. Backend UI function paths remain relative to their own extension config.
+## 2. Helper files
 
-`validator.js` files are pure candidate-payload extractors returning original item/quote and logging context. `index.js` orchestrates and catches failures. `actions/lib/settings.js` reads three keys at global scope and validates positive integer limit. `actions/lib/commerce-api-client.js` uses merchant association, current-qty read guard, bounded retry and 404 no-op.
+| File | Job |
+| --- | --- |
+| `actions/webhook/*/validator.js` | Reads the item or the cart from the webhook payload |
+| `actions/lib/settings.js` | Reads the 3 settings at global scope and checks they are valid |
+| `actions/lib/is-over-limit.js` | `parseLimit`, `parseQuantity`, `isOverLimit` |
+| `actions/lib/commerce-api-client.js` | Correction: sets a cart line back to the maximum |
+| `commerce-backend-ui-2/actions/lib/permissions.js` | Checks the Admin menu permission |
 
-## Data flow and error outcomes
+## 3. Item action: steps
 
-```text
-add: quoteItem → parse → settings → invalid qty? exception : qty>limit? exception : success
-save: item → parse → settings → qty>limit? (optional GET/PUT clamp) + exception : success
-merge: quote.items[] → parse → settings → check each → optional clamp each offender → first exception/success
-UI: GET or POST → method → permission → read or validate/save Business Config → JSON status
+1. Read the item from `data.quote_item` (add; the documented key), `data.quoteItem`, `data.data_object` (save) or `data.item`.
+2. No item: **allow** and log `invalid_payload`.
+3. Read the settings. On error: **allow** and log `fail_open`.
+4. Validation disabled, or quantity `0`: **allow**.
+5. Quantity is not a number: **allow** and log `invalid_quantity`.
+6. Quantity ≤ maximum: **allow**.
+7. Save event with correction on: set the line back to the maximum.
+8. **Block** with `You have reached the maximum amount of items.` (constant `MAX_QUANTITY_MESSAGE` in `is-over-limit.js`).
+
+## 4. Merge action: steps
+
+1. Read `data.quote.items[]`.
+2. Read the settings. On error: **allow** and log `fail_open`. If validation is disabled: **allow**.
+3. No items list: **allow** and log `invalid_payload`.
+4. For each line:
+   - Quantity `0`: skip.
+   - Quantity not a number: log `invalid_quantity` and skip.
+   - Quantity > maximum: remember the line, and correct it if correction is on.
+5. If any line was over the maximum: **block** with the agreed message. Otherwise: **allow**.
+
+## 5. Settings actions
+
+**POST body:**
+
+```json
+{ "enabled": true, "maxQuantity": 10, "enableCompensatingCorrection": true }
 ```
 
-Payload field names and webhook dispatch are sandbox assumptions; do not infer transaction guarantees from `webhook_type: before` on `_after` observer names. Logging records handler/source/decision/identifiers, not token or body. Two settings interfaces intentionally coexist. No new API route, HTTP method, product logic, setting or authorization policy is introduced.
+| Status | When |
+| --- | --- |
+| `200` | Success |
+| `400` | Body is not JSON, a value is invalid, or the body has an unknown key |
+| `403` | User lacks the menu permission |
+| `405` | Wrong HTTP method (GET is for read, POST is for save) |
+| `500` | Settings could not be read or saved |
+| `502` | The permission check could not run |
 
-## Structure and tests
+`maxQuantity` must be a positive whole number. Responses use `Cache-Control: no-store`.
 
-Root `test/commerce-extensibility-1/actions/` and `test/commerce-backend-ui-2/actions/` mirror handwritten source, with sandbox-only `test/integration/prevention-guarantee.sandbox.test.js`. `npm run test` runs full unit suite; `npm run test:sandbox` must be invoked separately with disposable carts. `.generated/` and build-generated Admin action URLs are SDK-owned. `docs/` holds designs, runbook, traceability and live evidence; repo root holds `README.md` and `.gitignore` but no workspace-binding credentials.
+## 6. Correction (`clampItem`)
+
+1. Check that the cart ID, item ID and quantities are valid. If not, log `skipped_missing_identifier` and stop.
+2. GET `carts/{cartId}/items` using the Commerce client of the associated merchant.
+3. Line not found: log `not_found` and stop.
+4. Only if the quantity is still the same as the one observed: PUT the line to the maximum.
+5. Retry once on 502, 503, 504 or a timeout. After that, log `CRITICAL`.
+
+## 7. Logging
+
+- **Fields:** `handler`, `source`, `decision`, `quote_id`, `item_id`, `sku`, `qty`, `product_type`, `maxQuantity`, `phase`, `errorType`.
+- Tokens and request bodies are never logged.
+
+## 8. Build notes
+
+- `function` paths in `actions/webhook/actions.config.yaml` are relative to that file. Write `validate-cart-item/index.js`, not `actions/webhook/...`.
+- `web-src/src/config.json` is generated by the build and must not be committed.
+- Unit tests live in `test/` and mirror `src/`. The live sandbox test is `test/integration/prevention-guarantee.sandbox.test.js`.

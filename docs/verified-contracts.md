@@ -1,31 +1,69 @@
-# ACCS contract verification record
+# Live Verification Record
 
-Status: **NOT VERIFIED on a live ACCS sandbox**. A mocked test/build does not prove hook dispatch, rollback or correction. Sandbox script deliberately **fails**, rather than skips, without explicit credentials and mode. Do not interpret a deployed action as successful test.
+**Status: NOT VERIFIED.** No sandbox results have been recorded yet. Unit tests, a build or a deployment are not proof that the app works in Commerce.
 
-## Sources and assumptions
+## 1. How to record a result
 
-- SDK accepts `webhooks[].runtimeAction`, `webhook.webhook_method`, `webhook.webhook_type: before` and returns `ok(exceptionOperation(message))`: [Webhook app management](https://developer.adobe.com/commerce/extensibility/app-management/installation/webhooks/) and [response helpers](https://github.com/adobe/aio-commerce-sdk/blob/main/packages/aio-commerce-lib-webhooks/docs/usage.md).
-- `observer.sales_quote_add_item` (`data.quoteItem`), `observer.sales_quote_item_save_after` (`data.item`) and `observer.sales_quote_merge_after` (`data.quote.items[]`) are blueprint-selected **candidate** hooks. Their ACCS payloads, availability and rollback behavior are not confirmed. Published [add-to-cart sample](https://github.com/adobe/adobe-commerce-samples/blob/main/webhooks/add-to-cart-stock-validation/README.md) uses `observer.checkout_cart_product_add_before` instead; confirm selected hooks on target project before Marketplace listing.
-- `webhook_type: before` on an observer whose name ends in `_after` does **not** establish database rollback. Test with correction off and independent cart query.
-- GraphQL [updateCartItems](https://developer.adobe.com/commerce/webapi/graphql/schema/cart/mutations/update-items/) and [mergeCarts](https://developer.adobe.com/commerce/webapi/graphql/schema/cart/mutations/merge/) probe persistence separately from webhook response. REST correction and guest/customer cart ACL require live confirmation. `getCommerceClient` resolves associated merchant.
-- Admin menu ACL check uses `getAdminUiPermissionClient` and merchant-associated client. Check actual role attribution (not merely technical account role) by invoking settings actions as two Admin users with different menu permissions.
+For each test, fill in:
 
-## Sandbox evidence procedure
+- Date and time (UTC) and the environment (ACCS project, App Builder workspace).
+- Settings used (Enabled, Max Quantity, Correction).
+- Result: Pass or Fail.
+- Cart quantity **after** the test, from a fresh cart read.
+- Evidence: a screenshot, the webhook log or the activation ID.
 
-1. Install on a **disposable** ACCS sandbox with two distinct merchant-owned carts. Set Enabled=true, Max Quantity=10 and Enable Compensating Correction=false in App Management. Put compliant target item in destination and **same SKU** at compliant quantity in guest source; combined quantity must exceed 10. Use authorized shopper token able to query both carts, or prepare two independent tests with appropriate access. Verify three webhook registrations, payload fields and **System > Webhook Logs**.
-2. Export locally `ACCS_GRAPHQL_URL` (HTTPS), `ACCS_BEARER_TOKEN`, `ACCS_CART_ID` (destination), `ACCS_CART_ITEM_UID` (target UID), `ACCS_MERGE_SOURCE_CART_ID` (guest) and `ACCS_EXPECT_MODE=rollback`; never commit tokens. Run `npm run test:sandbox`. Absent variable causes failure. Harness asserts both mutations reject and cart unchanged; logs no token, cart ID or request body. Failure can indicate missing hook or incorrect payload/GraphQL contract; diagnose before claiming prevention.
-3. Recreate source guest cart, set Enable Compensating Correction=true and `ACCS_EXPECT_MODE=correct`, then rerun with fresh destination/source carts. Test asserts rejected mutation and final cart lines <=10. If session cannot query source cart or Commerce does not support GraphQL mutation input type, fix test against real ACCS schema rather than treating failure as rollback evidence.
-4. Capture sanitized observer payload examples (parent and child rows), invocation count, error text and latency. Check whether correction PUT re-enters save hooks. Run storefront guest/customer add and quantity update, login merge and **Commerce Admin Create New Order**; inspect resulting cart/order, not just response. Test denied and allowed Admin roles calling settings actions directly.
-5. Repeat after upgrading and on second ACCS project. If hooks/payloads differ, do not promote to production; amend code/config, rerun build/tests and record date/environment/evidence below.
+Never record tokens, cart IDs, customer data or raw payloads.
 
-## Results
+## 2. Platform checks
 
-| Contract | Live outcome | Required evidence |
-| --- | --- | --- |
-| add hook dispatched before persistence | pending | webhook logs + post-cart query |
-| save-after named hook rollback | pending | correction off + post-cart query |
-| merge-after named hook rollback | pending | correction off + post-cart query |
-| correction on guest/customer cart | pending | GET/PUT and post-cart query |
-| parent/child row coverage | pending | sanitized webhook logs |
-| admin order creation | pending | admin UI and webhook logs |
-| UI settings round-trip and role ACL | pending | Admin UI + native Business Config comparison and two-role check |
+| # | Check | Expected | Result | Evidence |
+| --- | --- | --- | --- | --- |
+| P-01 | App installed in App Management | Installed | Pending | |
+| P-02 | Webhook subscriptions | 3 active hooks | Pending | |
+| P-03 | Add-item payload key | Record the real key (`quote_item`?) | Pending | |
+| P-04 | Save-item payload key | Record the real key | Pending | |
+| P-05 | Merge payload | `data.quote.items[]` | Pending | |
+| P-06 | Quantity sent for an existing SKU | The resulting (total) line quantity | Pending | |
+| P-07 | Save with correction off: is the save undone? | Cart keeps its old quantity | Pending | |
+| P-08 | Merge with correction off: is the merge undone? | No line over the limit | Pending | |
+| P-09 | Admin page loads | Settings are shown | Pending | |
+
+## 3. Client scenarios
+
+The test steps are in [deployment-and-live-testing.md](deployment-and-live-testing.md#step-e-run-the-tests).
+
+| Test | Scenario | Result | Cart after | Evidence |
+| --- | --- | --- | --- | --- |
+| T-01 | Below limit | Pending | | |
+| T-02 | At limit | Pending | | |
+| T-03 | Over limit with the agreed message | Pending | | |
+| T-04 | Existing SKU: add more | Pending | | |
+| T-05 | Existing SKU: update quantity | Pending | | |
+| T-06 | Several SKUs | Pending | | |
+| T-07 | Admin changes the limit, no redeploy | Pending | | |
+| T-08 | Invalid settings rejected | Pending | | |
+| T-09 | Denied Admin role | Pending | | |
+| T-10 | Guest/customer merge | Pending | | |
+| T-11 | Correction on | Pending | | |
+| T-12 | Admin Create New Order | Pending | | |
+| T-13 | Kill switch | Pending | | |
+
+## 4. Optional automated sandbox test
+
+1. Prepare two disposable carts: the customer cart and a guest cart with the **same SKU**. Each must be under the limit, but their total must be over it.
+2. Set Max Quantity = 10 and Correction = Off.
+3. Export these variables locally (never commit them):
+   - `ACCS_GRAPHQL_URL`, `ACCS_BEARER_TOKEN`
+   - `ACCS_CART_ID` (the customer cart), `ACCS_CART_ITEM_UID` (the line to update), `ACCS_MERGE_SOURCE_CART_ID` (the guest cart)
+   - `ACCS_EXPECT_MODE=rollback`
+4. Run `npm run test:sandbox`.
+5. Make new carts, set Correction = On and `ACCS_EXPECT_MODE=correct`, then run it again.
+
+The test fails on purpose if any variable is missing. A failure is something to investigate, not a pass.
+
+## 5. Sources
+
+- [Webhooks in App Management](https://developer.adobe.com/commerce/extensibility/app-management/installation/webhooks/)
+- [Webhook response helpers](https://github.com/adobe/aio-commerce-sdk/blob/main/packages/aio-commerce-lib-webhooks/docs/usage.md)
+- [Adobe add-to-cart webhook sample](https://github.com/adobe/adobe-commerce-samples/blob/main/webhooks/add-to-cart-stock-validation/README.md)
+- GraphQL [updateCartItems](https://developer.adobe.com/commerce/webapi/graphql/schema/cart/mutations/update-items/) and [mergeCarts](https://developer.adobe.com/commerce/webapi/graphql/schema/cart/mutations/merge/)

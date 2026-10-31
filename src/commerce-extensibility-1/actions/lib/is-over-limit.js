@@ -1,3 +1,5 @@
+export const MAX_QUANTITY_MESSAGE = 'You have reached the maximum amount of items.';
+
 export function parseLimit(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
   const text = String(value);

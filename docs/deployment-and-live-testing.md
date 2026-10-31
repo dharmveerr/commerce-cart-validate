@@ -1,52 +1,113 @@
-# Cart Item Validation: deployment, association recovery, and live ACCS tests
+# Deployment and Live Testing: Step by Step
 
-Status: Stage build/deployment succeeded for version `1.5.0`; **association, installation, and cart enforcement are not yet verified**. Use a disposable ACCS sandbox and test carts. Do not run mutation tests on a merchant's real cart. The app is designed for multiple ACCS projects; repeat installation and validation in each project rather than reusing a backend URL or tokens.
+Use a **disposable ACCS sandbox** and test carts only. Never test on production or on real customer carts.
 
-## 1. Resolve the current association 500 before testing carts
+| Step | What | Status (31 Oct 2026) |
+| --- | --- | --- |
+| A | Fix the association error | **Blocked** |
+| B | Build and deploy | Done (Stage) |
+| C | Associate and install | Blocked by step A |
+| D | Prepare for testing | To do |
+| E | Run the tests | To do |
+| F | Record the results and stop rules | To do |
+| G | Second ACCS project | Before Marketplace only |
 
-At `2026-10-31 09:52:46 UTC`, the browser received `500` from `POST https://aemx-mngr.adobe.io//v2/extensions` with `x-request-id: b432ad8a-1489-4967-9db9-a27129b95a05`. The supplied Stage App Builder logs at `09:52:14–15 UTC` show successful shared validation and `app-management/__secured_app-config` validation. No `app-management/association` activation was present in the supplied excerpt. These facts **do not establish which backend failed**: a missing log excerpt is not proof that the action was never invoked. The double slash in the request URL is worth including in a support ticket, but is not by itself proven to be the cause. The SDK-generated association action is declared in `src/commerce-extensibility-1/ext.config.yaml`, and the last Stage deploy exited successfully; neither fact proves the association was stored.
+## Step A: Fix the association error
 
-1. **Operator (Commerce Admin):** Refresh **Apps > App Management** and inspect the app card/details. Record whether `Cart Item Validation` is absent, `ASSOCIATED`, or installed, and whether Commerce scopes appear under **Manage Scopes**. Do not unassociate or click Associate repeatedly until the state is known. A prior partial association is possible even when the UI reports 500.
-2. **Operator (Developer Console):** Open the `Commerce Cart Validate` project, **Stage** workspace, **App Builder Logs**. Filter `2026-10-31 09:52:15–09:53:00 UTC` and action `app-management/association` (also check `app-management/__secured_association`). Save activation ID, status, error class/phase and timestamp if present. Check the corresponding time for other app-management actions. Never share headers, tokens, cookies, request bodies, or secrets.
-3. **If an association activation failed:** provide its redacted error/activation ID to the app developer. Fix the demonstrated SDK/config/permission failure, regenerate SDK outputs and redeploy **only after a specific cause is identified**. If the action returned success but the UI failed, check the app's actual association/scopes state; escalate the manager error rather than changing unrelated cart code.
-4. **If no association activation appears and association is not complete:** ask an Adobe Commerce/App Management administrator to open a support case. Include the UTC timestamp, exact failing URL and method (including the double slash), `x-request-id` above, response status/body, Commerce instance identifier (through the secure support channel), IMS org/project and Stage workspace identifiers, and the redacted observation that `app-config` validation succeeded but no association activation was found in the examined window. Ask Adobe to trace the `/v2/extensions` request through App Management and extension-point dispatch. Only Adobe can inspect its internal trace and fix a service-side error.
-5. **If already associated:** do not re-associate blindly. Check scope sync; if needed, use **Manage Scopes** to sync Commerce scopes manually. Adobe documents that scope sync can fail even though association completes. Confirm the separate **Install** state before proceeding. Do not infer installation from `ASSOCIATED`.
+**Problem:**
 
-**Who can do what:** The app developer can review code, SDK config, build/deploy output, and any shared Runtime activation; a Commerce Admin can inspect association, scopes, and installation; the operator with Developer Console access can inspect Stage logs and API subscriptions; Adobe Support must trace manager request ID `b432ad8a-1489-4967-9db9-a27129b95a05`. This workspace cannot inspect Adobe's private manager logs or the merchant browser session. No speculative code edit/deploy will fix an unlocated 500.
+- At 09:52:46 UTC on 31 Oct 2026, `POST https://aemx-mngr.adobe.io//v2/extensions` returned **500**, with `x-request-id: b432ad8a-1489-4967-9db9-a27129b95a05`.
+- An earlier install attempt returned `409 not-associated`.
 
-## 2. Deployment checklist (for a subsequent approved change)
+**Steps:**
 
-1. Select the intended Adobe Developer Console **IMS org > Commerce Cart Validate > Stage** workspace. Ensure Runtime is configured, the project has the SDK-required I/O Management API (`AdobeIOManagementAPISDK`), and for ACCS add the `ACCS-REST-API` subscription; verify authorized service-account permissions for this Commerce instance. Keep `.env`, `.aio` workspace binding, IMS credentials and customer tokens in approved secret/local storage, not `docs/` or source control. `docs/.env.template` is names only. Do not switch workspaces mid-build.
-2. From the project root run `npm install`, `npx aio-commerce-lib-app generate all`, `npm run typecheck`, `npm test`, and `aio app build`. Inspect `src/commerce-extensibility-1/ext.config.yaml`: the generated `app-management` worker processes include `app-config`, `association`, `installation`; the two custom webhook actions are declared in `actions/webhook/actions.config.yaml`. Do not edit `.generated/` directly. A passing build/unit suite does not demonstrate live hook registration or correct rollback.
-3. With an approved change and the correct Stage workspace selected, deploy using `aio app deploy` (or request deployment through the project deployment workflow). Verify successful completion, correct Stage namespace and all three extension points (`commerce/extensibility/1`, `commerce/configuration/1`, `commerce/backend-ui/2`). Verify generated Admin UI action URLs use the selected workspace namespace, not `undefined`. **Deploy does not install the app in Commerce.** Avoid changing the app's stable `metadata.id` on upgrades.
-4. In the target ACCS project's **Apps > App Management**, click **Associate App**, select **Commerce Cart Validate** and **Stage**, review `Cart Item Validation` version `1.5.0` with Business Configuration, Admin UI and Webhooks, then Associate **once**. Follow section 1 if it fails. Confirm resulting association and scopes (sync manually if the UI says they did not sync). Complete the **Install** action in App Management separately; record installation status and any errors. Grant the generated Stores-menu ACL to the intended Admin roles. On subsequent versions follow App Management's upgrade flow and recheck resources; do not assume redeploy applies installations or upgrades by itself.
+1. In Commerce Admin, open **Apps > App Management**. Note the app state: not listed, ASSOCIATED or installed. Do **not** click Associate again yet.
+2. In Developer Console, go to **Commerce Cart Validate > Stage > App Builder Logs**. Filter from 09:52 to 09:53 UTC on the action `app-management/association`. Save the activation ID and the error, if there is one.
+3. Choose one of these, based on what you found:
+   - **The association action failed:** fix that error, then rebuild and redeploy (step B).
+   - **There is no association action and the app is not associated:** open an Adobe support ticket. Include the time, the URL (note the double slash), the request ID, and the org, project and workspace IDs.
+   - **The app is already associated:** click **Manage Scopes > Sync Commerce scopes**, then go to step C.
+4. Never put tokens, cookies or secrets in tickets.
 
-## 3. Live test prerequisites and instrumentation
+## Step B: Build and deploy
 
-- Work in a disposable ACCS environment with a usable storefront, a simple product plus configurable/bundle products for parent/child coverage, two test Admin roles (one allowed, one denied), a customer shopper, and fresh guest/customer carts. Obtain authorized shopper credentials locally. Confirm `System > Webhooks > Webhooks List` offers the intended observer methods; the three names configured by this app are **candidates**, not verified on this tenant.
-- After **Install**, verify that Commerce lists all three app-owned hooks: `observer.sales_quote_add_item` (`validate_add_item`), `observer.sales_quote_item_save_after` (`validate_saved_item`), `observer.sales_quote_merge_after` (`validate_merged_quote`). All three target the Stage web actions through app installation. Check method/type, enabled status and destination without publishing action URLs/tokens. If a method is unavailable or registration fails, stop and inspect install logs before storefront testing. Do **not** replace it with a guessed observer; Adobe's published add-to-cart example uses a different method.
-- In ACCS Admin, use **System > Webhooks > Webhooks List**, select a hook's **Test Webhook** action, submit a representative JSON payload from this instance and inspect exception/success and resolved payload. This tests the configured hook but is **not proof that a real cart operation emits the same payload or that a transaction rolls back**. Capture only sanitized payload keys, invocation count and latency. Correlate with **System > Webhooks > Webhooks Logs** and Stage App Builder Logs; protect cart/customer data.
-- For every real cart operation record the UTC time, sanitized cart/item correlation IDs, requested quantity, UI/GraphQL result, webhook activation and an **independent fresh cart read** (for example GraphQL `cart(cart_id: ...) { itemsV2 { items { uid quantity product { sku } } } }` with authorized shopper credentials). Network response or an exception alone cannot establish final persisted quantity.
+1. Select the workspace: `aio app use --global --no-input --merge` (org > Commerce Cart Validate > Stage).
+2. In the Developer Console, check that the workspace has these APIs: I/O Management API, ACCS-REST-API and OAuth Server-to-Server.
+3. Run:
 
-## 4. Functional test sequence and acceptance evidence
+   ```bash
+   npm install
+   npm run typecheck
+   npm test
+   aio app build
+   aio app deploy
+   ```
 
-1. **Settings round-trip:** In native App Management Business Configuration set `Enabled=true`, `Max Quantity=10`, `Enable Compensating Correction=false`. In the custom **Stores > Cart Item Validation** page confirm the same three global values. Change `Max Quantity` there to `5`, reload native and custom UIs, then restore `10` for the remaining tests. Attempt invalid `0`, fractions and very large values in the custom UI/action; expect rejection and no persisted change. Test an allowed Admin role and a denied role (including direct settings-action access); hidden menu alone is not an authorization test. If native settings allow an invalid text limit, restore a valid value immediately: validation hooks intentionally fail open on invalid config.
-2. **Basic add / limit:** With `Enabled=true`, `Max Quantity=10`, correction **off**, add 9 units to a fresh guest cart, then 10 to a separate fresh cart: expect success and independent quantity read. Attempt 11 on a separate fresh cart: inspect response, webhook log and cart read. The release criterion is that no over-limit quantity remains; note if exception did not prevent persistence. Repeat on authenticated customer cart and in an actual storefront checkout path. Include parent and child rows (simple, configurable, bundle) and check which rows received the hook; do not assume the parent and child both dispatch.
-3. **Update/remove:** Start with 3 of a product; request update to 11, then independently read the cart. With correction **off**, compare observed before/after to determine whether the save-after-named hook actually rolls back. Repeat with correction **on** in a **new** cart and inspect clamp GET/PUT action logs and final quantity `<=10`; a rejected response accompanied by persisted `11` is a failure. Set qty `0` on a separate test line: confirm expected removal and no incorrect over-limit block. Inspect failures/retries without exposing PII.
-4. **Guest/customer merge:** In separate disposable carts, put the same SKU with quantity 6 in customer destination and 5 in guest source (both individually compliant). Merge and check final destination with a fresh read, not only the mutation result. Run first with correction **off** to isolate rollback; then rebuild both carts and repeat with correction **on** to check whether compensation brings every affected line to `<=10`. Inspect both cart states and any re-entry of save hooks. Verify human-readable error UX for the first offending SKU. A named `_after` observer with `webhook_type: before` is **not a rollback guarantee**.
-5. **Admin order creation and boundaries:** In **Commerce Admin > Create New Order**, try valid and above-limit quantity and check hook activations and resulting quote/order independently. Test concurrent quantity changes and a stale correction read: log should show `stale_noop`, not overwrite a newer quantity. Test a transient REST failure/retry on disposable carts if a safe fault-injection facility exists. Record `CRITICAL` and reconcile over-limit items manually if correction fails.
-6. **Kill switches and negative cases:** Set `Enabled=false` and confirm a new request bypasses enforcement; restore `true`. Disable correction while leaving validation enabled to isolate prevention. With an unavailable Business Config backend, the handler is designed to log `phase: configuration, decision: fail_open`; treat unexpected pass-through as an operational alert, not a successful enforcement test. After each test restore valid settings.
-7. **Optional automation:** Only after checking the live GraphQL schema and preparing *disposable* destination and guest carts, export locally `ACCS_GRAPHQL_URL`, `ACCS_BEARER_TOKEN`, `ACCS_CART_ID`, `ACCS_CART_ITEM_UID`, `ACCS_MERGE_SOURCE_CART_ID`, and `ACCS_EXPECT_MODE=rollback` while `Max Quantity=10` and correction is off; run `npm run test:sandbox`. Recreate both carts and use `ACCS_EXPECT_MODE=correct` with correction on for the second run. The harness sends `updateCartItems` to 11 and `mergeCarts`, expects rejected mutations and checks the persisted result. It deliberately fails without prerequisites, and a failing assertion is evidence to investigate, **not** evidence of successful prevention. Never paste or commit tokens, cart IDs or raw payloads.
-8. **Marketplace/portability gate:** Repeat association, installation, settings, roles, storefront and webhook behavior on a **second ACCS project** with different Commerce instance/credentials. Compare native Business Config and custom Stores settings; **keep both for now** until product decides. Only call this production/Marketplace ready after each contract is recorded with observed results in `docs/verified-contracts.md` (hook availability/payload, add persistence, update and merge rollback or compensation, parent/child, Admin order path, role ACL, retries, second-project install).
+4. Check the deploy output:
+   - It used the Stage namespace.
+   - It lists 3 extension points.
+   - The Admin UI URLs do not contain `undefined`.
+5. Deploying does **not** install the app in Commerce.
 
-## Stop conditions and handoff
+## Step C: Associate and install
 
-Stop immediately if association/install is incomplete, a configured hook is unsupported, settings are invalid, any cart remains above the limit after a rejected operation, or secrets are exposed. Preserve a sanitized test matrix (scenario, environment, timestamp, result, actual post-cart state, webhook/activation IDs) in `docs/verified-contracts.md`; do not mark pending claims as verified without live evidence. Production rollout needs a rollback plan: disable `Enabled` in native Business Config, confirm bypass on a fresh request and remediate any existing over-limit carts with authorized operations. Deployment alone, 17 unit tests, and a successful app-config activation are not acceptance evidence.
+1. Go to **Apps > App Management > Associate App**, choose **Commerce Cart Validate > Stage**, then click **Associate**. Do this **once**.
+2. Check that the scopes synced. If they did not, use **Manage Scopes > Sync Commerce scopes**.
+3. Click **Install** and note the result.
+4. In **System > Webhooks > Webhooks Subscriptions**, check that 3 hooks are active:
+   - `observer.sales_quote_add_item` (`validate_add_item`)
+   - `observer.sales_quote_item_save_after` (`validate_saved_item`)
+   - `observer.sales_quote_merge_after` (`validate_merged_quote`)
+5. Give the **Cart Item Validation** permission to the Admin roles that need it.
 
-### Reference material
+## Step D: Prepare for testing
 
-- [Adobe Commerce: associate and manage an app](https://experienceleague.adobe.com/en/docs/commerce/app-management/manage-app/manage-app)
-- [Adobe Commerce: App Management installation and webhook notes](https://experienceleague.adobe.com/en/docs/commerce/app-management/install)
-- [Adobe Commerce: SaaS webhook testing](https://developer.adobe.com/commerce/extensibility/webhooks/testing/)
-- [Adobe App Builder: Developer Console application logs](https://developer.adobe.com/app-builder/docs/guides/app_builder_guides/application_logging/logging/)
-- [Project verification record](verified-contracts.md) and [operations runbook](cart-item-validation-runbook.md)
+- **Products:** one simple, one configurable and one bundle product.
+- **Admin roles:** one with the permission and one without.
+- **Carts:** a new guest or customer cart for every test.
+- **After every test, read the cart again**, for example with the GraphQL `cart(cart_id)` query. A response alone does not prove the final quantity.
+- Write every result in [verified-contracts.md](verified-contracts.md).
+
+## Step E: Run the tests
+
+Start with **Enabled = Yes, Max Quantity = 10, Correction = Off**.
+
+| Test | Client scenario | Steps | Expected result |
+| --- | --- | --- | --- |
+| T-01 | Below limit | Add 9 | Accepted. Cart = 9. |
+| T-02 | At limit | Add 10 | Accepted. Cart = 10. |
+| T-03 | Over limit | Add 11 | Blocked with "You have reached the maximum amount of items." Cart has no line of 11. |
+| T-04 | Existing SKU: add | Add 8, then add 3 more of the same SKU | Blocked. Cart stays at 8. |
+| T-05 | Existing SKU: update | Cart has 3; update it to 11 | Blocked. Cart stays at 3. |
+| T-06 | Several SKUs | SKU A = 10, then SKU B = 10 | Per-line rule: both accepted. Cart-total rule: SKU B blocked. Depends on Q-2. |
+| T-07 | Admin config change | Set Max = 5 on the custom page (no redeploy), then add 6 | Blocked. The App Management form also shows 5. Set it back to 10 afterwards. |
+| T-08 | Invalid settings | Save `0`, `1.5`, or a very large number | Rejected. Nothing is saved. |
+| T-09 | Admin permission | Open the page or call the actions with the role that lacks the permission | `403` |
+| T-10 | Merge | Customer cart has 6 of an SKU and the guest cart has 5 of the same SKU; log in | Blocked, or every line is 10 or less. Repeat with Correction = On. |
+| T-11 | Correction on | Correction = On; update a line to 11 | Final quantity = 10 |
+| T-12 | Admin order | **Create New Order** with 11 | Blocked |
+| T-13 | Kill switch | Enabled = No; add 11 | Accepted. Set Enabled = Yes afterwards. |
+
+Optional: run the automated sandbox test (see [verified-contracts.md](verified-contracts.md#4-optional-automated-sandbox-test)).
+
+## Step F: Record the results and stop rules
+
+- Record every test in [verified-contracts.md](verified-contracts.md), with evidence.
+- **Stop and report** if:
+  - install fails,
+  - a webhook is missing,
+  - a cart keeps more than the maximum after a block, or
+  - a secret is exposed.
+- **Roll back:** set **Enabled = No** in the App Management settings, then check it on a fresh cart.
+
+## Step G: Second ACCS project (before Marketplace)
+
+Repeat steps C to F on a second ACCS project with different credentials.
+
+## References
+
+- [Associate and manage an app](https://experienceleague.adobe.com/en/docs/commerce/app-management/manage-app/manage-app)
+- [App Management install and webhooks](https://experienceleague.adobe.com/en/docs/commerce/app-management/install)
+- [Testing SaaS webhooks](https://developer.adobe.com/commerce/extensibility/webhooks/testing/)
+- [App Builder logging](https://developer.adobe.com/app-builder/docs/guides/app_builder_guides/application_logging/logging/)
+

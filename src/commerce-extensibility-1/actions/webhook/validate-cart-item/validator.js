@@ -1,8 +1,9 @@
-// The two observer payload shapes are candidates until verified in an ACCS sandbox.
+// Adobe documents `data.quote_item` for add_item; save observers are expected to send `data_object` (verify live).
 export function parseCartItemPayload(data) {
   const payload = data ?? {};
-  const source = payload.quoteItem ? 'observer.sales_quote_add_item' : 'observer.sales_quote_item_save_after';
-  const item = payload.quoteItem ?? payload.item;
+  const addedItem = payload.quote_item ?? payload.quoteItem;
+  const source = addedItem ? 'observer.sales_quote_add_item' : 'observer.sales_quote_item_save_after';
+  const item = addedItem ?? payload.data_object ?? payload.item;
   return {
     item,
     context: {

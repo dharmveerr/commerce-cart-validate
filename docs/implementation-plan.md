@@ -1,15 +1,35 @@
-# Cart Item Validation — implementation plan (v7 organisation update)
+# Cart Item Validation: Implementation Plan
 
-This is relocation of existing code, not functional redesign. Previously approved Blueprint v7 remains source for feature scope; no storage is approved. Keep native Business Config and custom Admin UI together until live comparison determines whether both are needed.
+The gap IDs (G-x) and question IDs (Q-x) are defined in [requirements-and-solution-design.md](requirements-and-solution-design.md).
 
-| Phase | Migration step | Acceptance |
+## 1. Done
+
+| # | Task | Result |
 | --- | --- | --- |
-| 1 | Inventory existing config, SDK-generated App Management actions, references and unit/sandbox tests; keep `.generated/` unchanged. | Baseline behavior and existing Runtime names recorded. |
-| 2 | Relocate extensibility helpers `actions/shared/` → `actions/lib/`, and webhook handlers → `actions/webhook/<action>/`; isolate payload parsing in `validator.js`. | Item, merge, compensation, fail-open and logging behavior unchanged; no root helper or alias. |
-| 3 | Register `cart-validation` actions in included `actions/webhook/actions.config.yaml`, update include-relative `function` paths, keep auth/IMS inputs, annotations, and App Management actions. | `aio app build` resolves both functions and preserves webhook runtimeAction names. |
-| 4 | Relocate backend permissions to `actions/lib/`, update settings actions' relative imports to `../../../commerce-extensibility-1/actions/lib/`. | No changes to GET/POST responses or ACL checks. |
-| 5 | Move seven unit files to mirrored `test/` paths, update imports and `npm run test`; keep sandbox suite and test coverage. Consolidate runbook/evidence and HLD, LLD, blueprint, README in lowercase `docs/`. Delete obsolete `src/**/__tests__/`, `actions/shared/` and old handler copies, then verify inventory. | All existing assertions plus validator parsing tests pass; only one docs folder and no old source copies remain. |
-| 6 | Generate SDK assets, run `npm install`, frontend/action typecheck, build and unit tests. No deploy without explicit request. | Build succeeds; 17 unit assertions pass. |
-| 7 | After installation in disposable ACCS project, execute sandbox test with correction off/on, check Admin Create New Order and independent cart queries, repeat on another ACCS tenant. | Fill `verified-contracts.md`; three awaiting-user blueprint gates remain open until live evidence exists. |
+| 1 | Planned with CDA (Blueprint v6, then v7) | Design agreed |
+| 2 | Scaffolded the app with the Adobe Commerce SDK (three extension points) | App structure in place |
+| 3 | Built the webhook actions and helpers | Add, save and merge validation |
+| 4 | Built the settings: App Management form and the custom Admin page | Two screens, same values |
+| 5 | Restructured folders: `actions/lib/`, `actions/webhook/`, root `test/`, lowercase `docs/` | Old copies removed; build passes |
+| 6 | Wrote unit tests | 18/18 pass |
+| 7 | Deployed to the Stage workspace | Actions and Admin UI live |
+| 8 | Created the GitHub repository and the feature branch | Code pushed |
+| 9 | Fixed gaps G-1, G-2, G-5, G-6, G-10, G-11 | Agreed message, documented payload keys, fail-open on bad payload, webhook timeout/fallback, new tests |
 
-Rollback: restore former paths and extension function mappings as one commit if build or merchant smoke tests regress; do not edit generated action files. Check Admin association/install separately from build and do not treat `ASSOCIATED` or generic 500 as proof of successful installation. Workspace binding and credentials remain local/secret-managed and excluded from repository.
+## 2. To do (in order)
+
+| # | Task | Gap | Done when |
+| --- | --- | --- | --- |
+| 1 | Confirm with the client: Q-1 (message wording) and Q-2 (cart total) | G-3 | Answers written down |
+| 2 | Push this per-line version to an archive branch | - | Branch on GitHub |
+| 3 | Create a new branch and build the cart-total rule | G-3 | New tests pass |
+| 4 | Fix the App Management association and install the app | G-8 | Three webhooks active |
+| 5 | Run the sandbox tests | G-4, G-7 | Results in [verified-contracts.md](verified-contracts.md) |
+| 6 | Open the pull request to `main` | G-9 | PR has code, README, setup and test evidence |
+| 7 | Address review comments | - | All blocking comments closed |
+| 8 | Demo and handoff | - | Demo done |
+
+## 3. Rollback
+
+- **Code:** revert the commit, rebuild and redeploy.
+- **Live:** set **Enabled = No** in the App Management settings (see the [runbook](cart-item-validation-runbook.md)).

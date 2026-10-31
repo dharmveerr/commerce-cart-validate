@@ -1,22 +1,36 @@
-# Acceptance-test traceability
+# Test Traceability Matrix
 
-Local unit tests assert action contracts. AT/FT/UI-FT live scenarios require an ACCS sandbox; they are not implied by local green tests. Source blueprint does not specify individual test-case descriptions for every numbered ID; mapping below is execution plan, not live verification evidence.
+This maps each client scenario to its unit test and its sandbox test. Sandbox test IDs (T-xx) are defined in [deployment-and-live-testing.md](deployment-and-live-testing.md#step-e-run-the-tests).
 
-| Case | Scenario | Unit / integration coverage | Live verification |
+**Status key:** Pass = unit test passes · Partial = only part is checked · None = no test yet · Pending = sandbox not run.
+
+## 1. Client scenarios
+
+| Client scenario | Unit test (file › test name) | Unit | Sandbox |
 | --- | --- | --- | --- |
-| AT-01 | add qty below limit | `test/commerce-extensibility-1/actions/webhook/validate-cart-item/validate-cart-item.test.js` | storefront guest add |
-| AT-02 | add qty above limit | same | storefront add and independent cart query |
-| AT-03 | qty at limit | same | boundary add/update |
-| AT-04 | disabled bypass | same | native kill switch |
-| AT-05 | missing/non-numeric qty | same | webhook test tool |
-| AT-06 | Business Config unavailable | same | fault-injection sandbox |
-| AT-07 | parent/child rows and remove zero | same; `test/commerce-extensibility-1/actions/lib/is-over-limit.test.js` | configurable/bundle per-row dispatch |
-| FT-01 | saved item rollback versus correction | `test/commerce-extensibility-1/actions/lib/commerce-api-client.test.js`, validator test, `test/integration/prevention-guarantee.sandbox.test.js` | correction off/on, independent cart query |
-| FT-02 | guest/customer merge | `test/commerce-extensibility-1/actions/webhook/revalidate-quote-merge/revalidate-quote-merge.test.js`, sandbox test | merge + independent cart query |
-| FT-03 | admin order creation | item handler test (same handler) | Create New Order in Commerce Admin |
-| FT-04 | retry, 404 and stale read | commerce-api-client test | fault injection/concurrent edits |
-| UI-FT-01 | native and custom settings round-trip | `test/commerce-backend-ui-2/actions/{get-cart-validation-settings,save-cart-validation-settings}/*.test.js` | edit/refresh both Admin screens |
-| UI-FT-02 | invalid max / save failure | same | invalid text and outage in Admin |
-| UI-FT-03 | correction toggle | both webhook tests, save-settings test | correction off/on sandbox |
+| Below limit accepted | `validate-cart-item.test.js` › add item: below limit, at limit, over limit... (qty 9) | Pass | T-01 Pending |
+| At limit accepted | Same test (qty 10 allowed) | Pass | T-02 Pending |
+| Above limit blocked, with agreed message | Same test (qty 11 blocked, exact message checked) | Pass | T-03 Pending |
+| Existing SKU, no double counting | `validate-cart-item.test.js` › existing SKU uses the resulting line quantity... | Pass (per line) | T-04, T-05 Pending |
+| Aggregation across SKUs | Same test: SKU-A=10 and SKU-B=10 both allowed (per-line rule) | Per line only; cart total not on this branch (G-3) | T-06 Pending |
+| Admin config change, no redeploy | Same test (lowered limit 5); `get-cart-validation-settings.test.js`, `save-cart-validation-settings.test.js` | Pass | T-07, T-08 Pending |
 
-All active unit tests live under root `test/`, mirroring extension source; sandbox must run explicitly with disposable carts. Script fails when prerequisites are missing; it cannot be treated as a skipped passing test.
+## 2. Other behavior
+
+| Behavior | Unit test | Unit | Sandbox |
+| --- | --- | --- | --- |
+| Admin permission (ACL) | `permissions.test.js`; get/save "denies wrong method..." | Pass | T-09 Pending |
+| Guest/customer merge | `revalidate-quote-merge.test.js` (3 tests) | Pass | T-10 Pending |
+| Correction on save | `validate-cart-item.test.js` › saved item compensates...; `commerce-api-client.test.js` (3 tests) | Pass | T-11 Pending |
+| Admin Create New Order | Same item handler | Pass | T-12 Pending |
+| Disabled, qty 0, bad payload, settings error | `validate-cart-item.test.js` › disabled, correction disabled, zero removal, malformed payload...; merge › correction flag off... | Pass | T-13 Pending |
+| Payload parsing | `validate-cart-item.test.js` › payload parser reads documented keys...; merge › merge parser... | Pass | Live payload check (P-03, P-04) |
+
+## 3. How to run
+
+```bash
+npm test               # 18 unit tests (all external services mocked)
+npm run test:sandbox   # live ACCS only; see verified-contracts.md
+```
+
+Passing unit tests do **not** prove the app works in Commerce. Only the sandbox tests do.

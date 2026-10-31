@@ -11,13 +11,15 @@ test('empty and compliant merged carts succeed; over-limit item blocks and is co
   assert.equal((await invoke([item(2, 'configurable'), item(10, 'bundle')])).body.op, 'success');
   let count = 0;
   const result = await invoke([item(0), item(12, 'bundle'), item(13)], undefined, async () => { count++; });
-  assert.equal(result.body.op, 'exception'); assert.match(JSON.stringify(result.body), /SKU/); assert.equal(count, 2);
+  assert.equal(result.body.op, 'exception'); assert.equal(result.body.message, 'You have reached the maximum amount of items.'); assert.equal(count, 2);
 });
 test('correction flag off, malformed quantity and config fail-open', async () => {
   let count = 0;
   assert.equal((await invoke([item(11)], async () => ({ ...config, enableCompensatingCorrection: false }), async () => { count++; })).body.op, 'exception');
   assert.equal(count, 0);
-  assert.equal((await invoke([item('NaN')])).body.op, 'exception');
+  assert.equal((await invoke([item('NaN')])).body.op, 'success');
+  assert.equal((await invoke([item('NaN'), item(11)])).body.op, 'exception');
+  assert.equal((await createHandler({ settings: async () => config, logger })({ data: {} })).body.op, 'success');
   assert.equal((await invoke([item(11)], async () => { throw Error('unavailable'); })).body.op, 'success');
 });
 test('merge parser preserves quote and handles missing payload', () => {
