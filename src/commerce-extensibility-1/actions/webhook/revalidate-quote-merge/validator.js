@@ -1,8 +1,8 @@
-// Candidate payload shape from CDA blueprint v7; confirm against live ACCS webhook logs.
-export function parseMergePayload(params) {
-  const quote = params?.data?.quote;
+// Payload parsing is separated from action orchestration; live ACCS shape remains to be verified.
+export function parseMergePayload(data) {
+  const quote = data?.quote;
   return {
-    quoteId: quote?.entity_id,
-    items: Array.isArray(quote?.items) ? quote.items : null,
+    quote,
+    context: { handler: 'revalidate-quote-merge', source: 'observer.sales_quote_merge_after', quote_id: quote?.entity_id },
   };
 }

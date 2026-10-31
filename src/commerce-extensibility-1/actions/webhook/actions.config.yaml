@@ -1,6 +1,6 @@
 validate-cart-item:
-  function: ./validate-cart-item/index.js
-  web: 'yes'
+  function: validate-cart-item/index.js
+  web: yes
   runtime: nodejs:24
   inputs: &commerce_inputs
     LOG_LEVEL: $LOG_LEVEL
@@ -15,8 +15,8 @@ validate-cart-item:
     require-adobe-auth: true
     include-ims-credentials: true
 revalidate-quote-merge:
-  function: ./revalidate-quote-merge/index.js
-  web: 'yes'
+  function: revalidate-quote-merge/index.js
+  web: yes
   runtime: nodejs:24
   inputs: *commerce_inputs
   annotations:

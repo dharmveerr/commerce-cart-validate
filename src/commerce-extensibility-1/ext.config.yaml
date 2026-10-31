@@ -50,6 +50,5 @@ runtimeManifest:
           limits:
             timeout: 600000
     cart-validation:
-      license: Apache-2.0
       actions:
         $include: ./actions/webhook/actions.config.yaml

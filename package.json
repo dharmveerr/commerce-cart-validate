@@ -28,9 +28,10 @@
     "typecheck:actions": "tsc --noEmit -p tsconfig.json",
     "typecheck:web-src": "tsc --noEmit -p src/commerce-backend-ui-2/web-src/tsconfig.json",
     "typecheck": "npm run typecheck:actions && npm run typecheck:web-src",
-    "test": "node --test \"test/commerce-*/**/*.test.js\"",
+    "test": "node --test test/commerce-extensibility-1/actions/lib/*.test.js test/commerce-extensibility-1/actions/webhook/*/*.test.js test/commerce-backend-ui-2/actions/lib/*.test.js test/commerce-backend-ui-2/actions/*/*.test.js",
     "test:sandbox": "node --test test/integration/prevention-guarantee.sandbox.test.js",
-    "postinstall": "npx aio-commerce-lib-app hooks postinstall"
+    "postinstall": "npx aio-commerce-lib-app hooks postinstall",
+    "cleanup:obsolete": "node migration-once.cjs"
   },
   "imports": {
     "#app.commerce.config": "./src/commerce-extensibility-1/.generated/app.commerce.config.js",

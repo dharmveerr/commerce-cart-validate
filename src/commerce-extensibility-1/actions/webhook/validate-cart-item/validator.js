@@ -1,11 +1,14 @@
-// Adobe documents `data.quote_item` for observer.sales_quote_add_item; model save observers send `data_object`.
-export function parseCartItemPayload(params) {
-  const data = params?.data ?? {};
-  const addedItem = data.quote_item ?? data.quoteItem;
-  const item = addedItem ?? data.data_object ?? data.item;
+// The two observer payload shapes are candidates until verified in an ACCS sandbox.
+export function parseCartItemPayload(data) {
+  const payload = data ?? {};
+  const source = payload.quoteItem ? 'observer.sales_quote_add_item' : 'observer.sales_quote_item_save_after';
+  const item = payload.quoteItem ?? payload.item;
   return {
-    source: addedItem ? 'observer.sales_quote_add_item' : 'observer.sales_quote_item_save_after',
-    item: item && typeof item === 'object' ? item : null,
-    quoteId: item?.quote_id ?? data.quote?.entity_id ?? data.quote_id,
+    item,
+    context: {
+      handler: 'validate-cart-item', source,
+      quote_id: item?.quote_id ?? payload.quote?.entity_id ?? payload.quote_id,
+      item_id: item?.item_id, sku: item?.sku, qty: item?.qty, product_type: item?.product_type,
+    },
   };
 }

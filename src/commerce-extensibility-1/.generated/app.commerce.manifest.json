@@ -47,16 +47,12 @@
         "saas"
       ],
       "label": "Validate added cart item",
-      "requireAdobeAuth": true,
       "runtimeAction": "cart-validation/validate-cart-item",
       "webhook": {
         "batch_name": "cart_item_validation",
-        "fallback_error_message": "Unable to update the cart right now. Please try again.",
         "hook_name": "validate_add_item",
         "method": "POST",
         "required": true,
-        "soft_timeout": 1000,
-        "timeout": 5000,
         "webhook_method": "observer.sales_quote_add_item",
         "webhook_type": "before"
       }
@@ -68,16 +64,12 @@
         "saas"
       ],
       "label": "Validate saved cart item",
-      "requireAdobeAuth": true,
       "runtimeAction": "cart-validation/validate-cart-item",
       "webhook": {
         "batch_name": "cart_item_validation",
-        "fallback_error_message": "Unable to update the cart right now. Please try again.",
         "hook_name": "validate_saved_item",
         "method": "POST",
         "required": true,
-        "soft_timeout": 1000,
-        "timeout": 5000,
         "webhook_method": "observer.sales_quote_item_save_after",
         "webhook_type": "before"
       }
@@ -89,16 +81,12 @@
         "saas"
       ],
       "label": "Revalidate merged quote",
-      "requireAdobeAuth": true,
       "runtimeAction": "cart-validation/revalidate-quote-merge",
       "webhook": {
         "batch_name": "cart_item_validation",
-        "fallback_error_message": "Unable to update the cart right now. Please try again.",
         "hook_name": "validate_merged_quote",
         "method": "POST",
         "required": true,
-        "soft_timeout": 1000,
-        "timeout": 5000,
         "webhook_method": "observer.sales_quote_merge_after",
         "webhook_type": "before"
       }
